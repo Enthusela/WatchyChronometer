@@ -43,7 +43,7 @@ typedef struct watchySettings {
 class Watchy_3C {
 public:
   static WatchyRTC RTC;
-  static GxEPD2_154c display;
+  static GxEPD2_3C<WatchyDisplay_3C, WatchyDisplay_3C::HEIGHT> display;
   tmElements_t currentTime;
   watchySettings settings;
 

@@ -18,23 +18,23 @@
 
 #include <GxEPD2_EPD.h>
 
-class WatchyDisplay : public GxEPD2_EPD
+class WatchyDisplay_3C : public GxEPD2_EPD
 {
   public:
     // attributes
     static const uint16_t WIDTH = 200;
     static const uint16_t WIDTH_VISIBLE = WIDTH;
     static const uint16_t HEIGHT = 200;
-    static const GxEPD2::Panel panel = GxEPD2::GDEH0154D67;
-    static const bool hasColor = false;
-    static const bool hasPartialUpdate = true;
-    static const bool hasFastPartialUpdate = true;
-    static const uint16_t power_on_time = 100; // ms, e.g. 95583us
-    static const uint16_t power_off_time = 150; // ms, e.g. 140621us
-    static const uint16_t full_refresh_time = 2600; // ms, e.g. 2509602us
-    static const uint16_t partial_refresh_time = 500; // ms, e.g. 457282us
+    static const GxEPD2::Panel panel = GxEPD2::GDEW0154Z04;
+    static const bool hasColor = true;
+    static const bool hasPartialUpdate = false;
+    static const bool hasFastPartialUpdate = false;
+    static const uint16_t power_on_time = 20; // ms, e.g. 10157us
+    static const uint16_t power_off_time = 20; // ms, e.g. 10157us
+    static const uint16_t full_refresh_time = 7500; // ms, e.g. 7135635us
+    static const uint16_t partial_refresh_time = 7500; // ms, e.g. 7135635us
     // constructor
-    WatchyDisplay(int16_t cs, int16_t dc, int16_t rst, int16_t busy);
+    WatchyDisplay_3C(int16_t cs, int16_t dc, int16_t rst, int16_t busy);
     // methods (virtual)
     //  Support for Bitmaps (Sprites) to Controller Buffer and to Screen
     void clearScreen(uint8_t value = 0xFF); // init controller memory and screen (default white)

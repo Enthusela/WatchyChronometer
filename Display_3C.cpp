@@ -14,7 +14,7 @@
 // The original code from the author has been slightly modified to improve the performance for Watchy Project:
 // Link: https://github.com/sqfmi/Watchy
 
-#include "Display.h"
+#include "Display_3C.h"
 
 WatchyDisplay::WatchyDisplay(int16_t cs, int16_t dc, int16_t rst, int16_t busy) :
   GxEPD2_EPD(cs, dc, rst, busy, HIGH, 10000000, WIDTH, HEIGHT, panel, hasColor, hasPartialUpdate, hasFastPartialUpdate)

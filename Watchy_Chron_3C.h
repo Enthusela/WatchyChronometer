@@ -10,8 +10,8 @@
 #include "icons.h"
 #include "lookups.h"
 
-class WatchyChron : public Watchy{
-    using Watchy::Watchy;
+class WatchyChron : public Watchy_3C{
+    using Watchy_3C::Watchy_3C;
     public:
         void drawWatchFace();
         void drawBattery();

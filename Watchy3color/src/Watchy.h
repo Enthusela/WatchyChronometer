@@ -1,17 +1,28 @@
 #ifndef WATCHY_H
 #define WATCHY_H
 
+#ifndef SCREEN_TYPE
+#define SCREEN_TYPE BW
+#endif
+
+#define SCREEN_TYPE C
+
 #include <Arduino.h>
 #include <WiFiManager.h>
 #include <HTTPClient.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <Arduino_JSON.h>
-#include <GxEPD2_BW.h>
+#if SCREEN_TYPE == C
+  #include <GxEPD2_3C.h>
+#else
+  #include <GxEPD2_BW.h>
+#endif
+#include "Display.h"
+
 #include <Wire.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include "DSEG7_Classic_Bold_53.h"
-#include "Display.h"
 #include "WatchyRTC.h"
 #include "BLE.h"
 #include "bma.h"
@@ -43,7 +54,11 @@ typedef struct watchySettings {
 class Watchy {
 public:
   static WatchyRTC RTC;
-  static GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> display;
+  #if SCREEN_TYPE == C
+    static GxEPD2_3C<WatchyDisplay, WatchyDisplay::HEIGHT> display;
+  #else
+    static GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> display;
+  #endif
   tmElements_t currentTime;
   watchySettings settings;
 

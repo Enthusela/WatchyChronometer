@@ -1,8 +1,13 @@
 #include "Watchy.h"
 
 WatchyRTC Watchy::RTC;
-GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
+#if SCREEN_TYPE == C
+  GxEPD2_3C<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
     WatchyDisplay(DISPLAY_CS, DISPLAY_DC, DISPLAY_RES, DISPLAY_BUSY));
+#else
+  GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
+    WatchyDisplay(DISPLAY_CS, DISPLAY_DC, DISPLAY_RES, DISPLAY_BUSY));
+#endif
 
 RTC_DATA_ATTR int guiState;
 RTC_DATA_ATTR int menuIndex;

@@ -1,7 +1,7 @@
 #ifndef WATCHY_CHRON_H
 #define WATCHY_CHRON_H
 
-#include "Watchy_3C.h"
+#include "Watchy.h"
 #include "Seven_Segment10pt7b.h"
 #include "DSEG7_Classic_Regular_15.h"
 #include "DSEG7_Classic_Bold_25.h"
@@ -10,8 +10,8 @@
 #include "icons.h"
 #include "lookups.h"
 
-class WatchyChron : public Watchy_3C{
-    using Watchy_3C::Watchy_3C;
+class WatchyChron : public Watchy{
+    using Watchy::Watchy;
     public:
         void drawWatchFace();
         void drawBattery();

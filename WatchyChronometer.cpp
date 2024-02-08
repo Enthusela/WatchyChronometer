@@ -1,4 +1,4 @@
-#include "Watchy_Chronometer.h"
+#include "WatchyChronometer.h"
 
 #define BORDER_THICKNESS 4
 #define DAY_NIGHT_THICKNESS 3

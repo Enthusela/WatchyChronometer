@@ -1,8 +1,13 @@
 #include "Watchy_3C.h"
 
-WatchyRTC Watchy_3C::RTC;
-GxEPD2_154c Watchy_3C::display(
+WatchyRTC Watchy::RTC;
+#if SCREEN_TYPE == C
+  GxEPD2_3C<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
     WatchyDisplay(DISPLAY_CS, DISPLAY_DC, DISPLAY_RES, DISPLAY_BUSY));
+#else
+  GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> Watchy::display(
+    WatchyDisplay(DISPLAY_CS, DISPLAY_DC, DISPLAY_RES, DISPLAY_BUSY));
+#endif
 
 RTC_DATA_ATTR int guiState;
 RTC_DATA_ATTR int menuIndex;
@@ -16,7 +21,7 @@ RTC_DATA_ATTR long gmtOffset = 0;
 RTC_DATA_ATTR bool alreadyInMenu         = true;
 RTC_DATA_ATTR tmElements_t bootTime;
 
-void Watchy_3C::init(String datetime) {
+void Watchy::init(String datetime) {
   esp_sleep_wakeup_cause_t wakeup_reason;
   wakeup_reason = esp_sleep_get_wakeup_cause(); // get wake up reason
   Wire.begin(SDA, SCL);                         // init i2c
@@ -68,13 +73,13 @@ void Watchy_3C::init(String datetime) {
   deepSleep();
 }
 
-void Watchy_3C::displayBusyCallback(const void *) {
+void Watchy::displayBusyCallback(const void *) {
   gpio_wakeup_enable((gpio_num_t)DISPLAY_BUSY, GPIO_INTR_LOW_LEVEL);
   esp_sleep_enable_gpio_wakeup();
   esp_light_sleep_start();
 }
 
-void Watchy_3C::deepSleep() {
+void Watchy::deepSleep() {
   display.hibernate();
   if (displayFullInit) // For some reason, seems to be enabled on first boot
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
@@ -96,7 +101,7 @@ void Watchy_3C::deepSleep() {
   esp_deep_sleep_start();
 }
 
-void Watchy_3C::handleButtonPress() {
+void Watchy::handleButtonPress() {
   uint64_t wakeupBit = esp_sleep_get_ext1_wakeup_status();
   // Menu Button
   if (wakeupBit & MENU_BTN_MASK) {
@@ -250,7 +255,7 @@ void Watchy_3C::handleButtonPress() {
   }
 }
 
-void Watchy_3C::showMenu(byte menuIndex, bool partialRefresh) {
+void Watchy::showMenu(byte menuIndex, bool partialRefresh) {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -283,7 +288,7 @@ void Watchy_3C::showMenu(byte menuIndex, bool partialRefresh) {
   alreadyInMenu = false;
 }
 
-void Watchy_3C::showFastMenu(byte menuIndex) {
+void Watchy::showFastMenu(byte menuIndex) {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -315,7 +320,7 @@ void Watchy_3C::showFastMenu(byte menuIndex) {
   guiState = MAIN_MENU_STATE;
 }
 
-void Watchy_3C::showAbout() {
+void Watchy::showAbout() {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -354,7 +359,7 @@ void Watchy_3C::showAbout() {
   guiState = APP_STATE;
 }
 
-void Watchy_3C::showBuzz() {
+void Watchy::showBuzz() {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -366,7 +371,7 @@ void Watchy_3C::showBuzz() {
   showMenu(menuIndex, false);
 }
 
-void Watchy_3C::vibMotor(uint8_t intervalMs, uint8_t length) {
+void Watchy::vibMotor(uint8_t intervalMs, uint8_t length) {
   pinMode(VIB_MOTOR_PIN, OUTPUT);
   bool motorOn = false;
   for (int i = 0; i < length; i++) {
@@ -376,7 +381,7 @@ void Watchy_3C::vibMotor(uint8_t intervalMs, uint8_t length) {
   }
 }
 
-void Watchy_3C::setTime() {
+void Watchy::setTime() {
 
   guiState = APP_STATE;
 
@@ -532,7 +537,7 @@ void Watchy_3C::setTime() {
   showMenu(menuIndex, false);
 }
 
-void Watchy_3C::showAccelerometer() {
+void Watchy::showAccelerometer() {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -604,14 +609,14 @@ void Watchy_3C::showAccelerometer() {
   showMenu(menuIndex, false);
 }
 
-void Watchy_3C::showWatchFace(bool partialRefresh) {
+void Watchy::showWatchFace(bool partialRefresh) {
   display.setFullWindow();
   drawWatchFace();
   display.display(partialRefresh); // partial refresh
   guiState = WATCHFACE_STATE;
 }
 
-void Watchy_3C::drawWatchFace() {
+void Watchy::drawWatchFace() {
   display.setFont(&DSEG7_Classic_Bold_53);
   display.setCursor(5, 53 + 60);
   if (currentTime.Hour < 10) {
@@ -625,13 +630,13 @@ void Watchy_3C::drawWatchFace() {
   display.println(currentTime.Minute);
 }
 
-weatherData Watchy_3C::getWeatherData() {
+weatherData Watchy::getWeatherData() {
   return getWeatherData(settings.cityID, settings.weatherUnit,
                         settings.weatherLang, settings.weatherURL,
                         settings.weatherAPIKey, settings.weatherUpdateInterval);
 }
 
-weatherData Watchy_3C::getWeatherData(String cityID, String units, String lang,
+weatherData Watchy::getWeatherData(String cityID, String units, String lang,
                                    String url, String apiKey,
                                    uint8_t updateInterval) {
   currentWeather.isMetric = units == String("metric");
@@ -684,7 +689,7 @@ weatherData Watchy_3C::getWeatherData(String cityID, String units, String lang,
   return currentWeather;
 }
 
-float Watchy_3C::getBatteryVoltage() {
+float Watchy::getBatteryVoltage() {
   if (RTC.rtcType == DS3231) {
     return analogReadMilliVolts(BATT_ADC_PIN) / 1000.0f *
            2.0f; // Battery voltage goes through a 1/2 divider.
@@ -693,7 +698,7 @@ float Watchy_3C::getBatteryVoltage() {
   }
 }
 
-uint16_t Watchy_3C::_readRegister(uint8_t address, uint8_t reg, uint8_t *data,
+uint16_t Watchy::_readRegister(uint8_t address, uint8_t reg, uint8_t *data,
                                uint16_t len) {
   Wire.beginTransmission(address);
   Wire.write(reg);
@@ -706,7 +711,7 @@ uint16_t Watchy_3C::_readRegister(uint8_t address, uint8_t reg, uint8_t *data,
   return 0;
 }
 
-uint16_t Watchy_3C::_writeRegister(uint8_t address, uint8_t reg, uint8_t *data,
+uint16_t Watchy::_writeRegister(uint8_t address, uint8_t reg, uint8_t *data,
                                 uint16_t len) {
   Wire.beginTransmission(address);
   Wire.write(reg);
@@ -714,7 +719,7 @@ uint16_t Watchy_3C::_writeRegister(uint8_t address, uint8_t reg, uint8_t *data,
   return (0 != Wire.endTransmission());
 }
 
-void Watchy_3C::_bmaConfig() {
+void Watchy::_bmaConfig() {
 
   if (sensor.begin(_readRegister, _writeRegister, delay) == false) {
     // fail to init BMA
@@ -810,7 +815,7 @@ void Watchy_3C::_bmaConfig() {
   sensor.enableWakeupInterrupt();
 }
 
-void Watchy_3C::setupWifi() {
+void Watchy::setupWifi() {
   display.epd2.setBusyCallback(0); // temporarily disable lightsleep on busy
   WiFiManager wifiManager;
   wifiManager.resetSettings();
@@ -839,7 +844,7 @@ void Watchy_3C::setupWifi() {
   guiState = APP_STATE;
 }
 
-void Watchy_3C::_configModeCallback(WiFiManager *myWiFiManager) {
+void Watchy::_configModeCallback(WiFiManager *myWiFiManager) {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -855,7 +860,7 @@ void Watchy_3C::_configModeCallback(WiFiManager *myWiFiManager) {
   display.display(false); // full refresh
 }
 
-bool Watchy_3C::connectWiFi() {
+bool Watchy::connectWiFi() {
   if (WL_CONNECT_FAILED ==
       WiFi.begin()) { // WiFi not setup, you can also use hard coded credentials
                       // with WiFi.begin(SSID,PASS);
@@ -874,7 +879,7 @@ bool Watchy_3C::connectWiFi() {
   return WIFI_CONFIGURED;
 }
 
-void Watchy_3C::showUpdateFW() {
+void Watchy::showUpdateFW() {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -894,7 +899,7 @@ void Watchy_3C::showUpdateFW() {
   guiState = FW_UPDATE_STATE;
 }
 
-void Watchy_3C::updateFWBegin() {
+void Watchy::updateFWBegin() {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -980,7 +985,7 @@ void Watchy_3C::updateFWBegin() {
   showMenu(menuIndex, false);
 }
 
-void Watchy_3C::showSyncNTP() {
+void Watchy::showSyncNTP() {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -1024,17 +1029,17 @@ void Watchy_3C::showSyncNTP() {
   showMenu(menuIndex, false);
 }
 
-bool Watchy_3C::syncNTP() { // NTP sync - call after connecting to WiFi and
+bool Watchy::syncNTP() { // NTP sync - call after connecting to WiFi and
                          // remember to turn it back off
   return syncNTP(gmtOffset,
                  settings.ntpServer.c_str());
 }
 
-bool Watchy_3C::syncNTP(long gmt) {
+bool Watchy::syncNTP(long gmt) {
   return syncNTP(gmt, settings.ntpServer.c_str());
 }
 
-bool Watchy_3C::syncNTP(long gmt, String ntpServer) {
+bool Watchy::syncNTP(long gmt, String ntpServer) {
   // NTP sync - call after connecting to
   // WiFi and remember to turn it back off
   WiFiUDP ntpUDP;

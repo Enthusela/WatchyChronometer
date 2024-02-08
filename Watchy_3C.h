@@ -1,5 +1,11 @@
-#ifndef WATCHY_3C_H
-#define WATCHY_3C_H
+#ifndef WATCHY_H
+#define WATCHY_H
+
+#ifndef SCREEN_TYPE
+#define SCREEN_TYPE BW
+#endif
+
+#define SCREEN_TYPE C
 
 #include <Arduino.h>
 #include <WiFiManager.h>
@@ -7,11 +13,16 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <Arduino_JSON.h>
-#include <GxEPD2_3C.h>
+#if SCREEN_TYPE == C
+  #include <GxEPD2_3C.h>
+#else
+  #include <GxEPD2_BW.h>
+#endif
+#include "Display_3C.h"
+
 #include <Wire.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include "DSEG7_Classic_Bold_53.h"
-#include "Display_3C.h"
 #include "WatchyRTC.h"
 #include "BLE.h"
 #include "bma.h"
@@ -40,15 +51,19 @@ typedef struct watchySettings {
   bool vibrateOClock;
 } watchySettings;
 
-class Watchy_3C {
+class Watchy {
 public:
   static WatchyRTC RTC;
-  static GxEPD2_3C<WatchyDisplay_3C, WatchyDisplay_3C::HEIGHT> display;
+  #if SCREEN_TYPE == C
+    static GxEPD2_3C<WatchyDisplay, WatchyDisplay::HEIGHT> display;
+  #else
+    static GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> display;
+  #endif
   tmElements_t currentTime;
   watchySettings settings;
 
 public:
-  explicit Watchy_3C(const watchySettings &s) : settings(s) {} // constructor
+  explicit Watchy(const watchySettings &s) : settings(s) {} // constructor
   void init(String datetime = "");
   void deepSleep();
   static void displayBusyCallback(const void *);

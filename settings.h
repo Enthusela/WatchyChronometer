@@ -1,6 +1,8 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include <Watchy.h>
+
 //Weather Settings
 #define CITY_ID "5128581" //New York City https://openweathermap.org/current#cityid
 #define OPENWEATHERMAP_APIKEY "f058fe1cad2afe8e2ddc5d063a64cecb" //use your own API key :)
@@ -14,15 +16,15 @@
 #define DST_OFFSET_SEC 3600
 
 watchySettings settings{
-    CITY_ID,
-    OPENWEATHERMAP_APIKEY,
-    OPENWEATHERMAP_URL,
-    TEMP_UNIT,
-    TEMP_LANG,
-    WEATHER_UPDATE_INTERVAL,
-    NTP_SERVER,
-    GMT_OFFSET_SEC,
-    DST_OFFSET_SEC
+    .cityID = CITY_ID,
+    .weatherAPIKey = OPENWEATHERMAP_APIKEY,
+    .weatherURL = OPENWEATHERMAP_URL,
+    .weatherUnit = TEMP_UNIT,
+    .weatherLang = TEMP_LANG,
+    .weatherUpdateInterval = WEATHER_UPDATE_INTERVAL,
+    .ntpServer = NTP_SERVER,
+    .gmtOffset = GMT_OFFSET_SEC,
+    .vibrateOClock = true,
 };
 
 #endif

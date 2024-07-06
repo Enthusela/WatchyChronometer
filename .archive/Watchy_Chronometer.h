@@ -1,7 +1,7 @@
 #ifndef WATCHY_CHRON_H
 #define WATCHY_CHRON_H
 
-#include <Watchy_3C.h>
+#include <Watchy.h>
 #include "Seven_Segment10pt7b.h"
 #include "DSEG7_Classic_Regular_15.h"
 #include "DSEG7_Classic_Bold_25.h"

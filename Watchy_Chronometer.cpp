@@ -32,9 +32,14 @@ void WatchyChron::drawWatchFace() {
       // recalculate sunrise/sunset
       // redraw day/night line
     }
-    drawDayNight();
+    display.fillScreen(backgroundColor);
+    if (!showTime) {
+      drawDayNight();
+    }
     prevDay = currDay;
-    drawSun();
+    if (!showTime) {
+      drawSun();
+    }
     drawMasks();
     if (showTime) {
         drawTime();
@@ -89,7 +94,8 @@ void WatchyChron::drawBattery() {
 
 void WatchyChron::drawDate() {
     const uint8_t DATE_POS_X = DISPLAY_CENTRE_X;
-    const uint8_t DATE_POS_Y = DISPLAY_CENTRE_Y + 45;
+    const uint8_t WDAY_POS_Y = DISPLAY_CENTRE_Y + 50;
+    const uint8_t DATE_POS_Y = WDAY_POS_Y + 20;
     int16_t  x1, y1;
     uint16_t w, h, day_date_offset;
 
@@ -105,19 +111,12 @@ void WatchyChron::drawDate() {
     String date = month + " " + day + " " + year;
     display.setFont(&FreeSansBold9pt7b);
     display.setTextColor(foregroundColor);
-    // Centre-align day of week and print
-    display.getTextBounds(dayOfWeek, DATE_POS_X, DATE_POS_Y, &x1, &y1, &w, &h);
-    display.setCursor(DATE_POS_X - w / 2, DATE_POS_Y);
-    display.print(dayOfWeek);
-    // Centre-align date and print
-    day_date_offset = h + 5;
-    display.getTextBounds(date, DATE_POS_X, DATE_POS_Y, &x1, &y1, &w, &h);
-    display.setCursor(DATE_POS_X - w / 2 + 50, DATE_POS_Y + day_date_offset);
-    display.println(date);
+    drawCenteredString(dayOfWeek, DATE_POS_X, WDAY_POS_Y, false);
+    drawCenteredString(date, DATE_POS_X, DATE_POS_Y, false);
 }
 
 void WatchyChron::drawDayNight() {
-    display.fillScreen(backgroundColor);
+    // display.fillScreen(backgroundColor);
     int dayNightCentre = dayNightLookup[dayOfYear][CENTRE];
     int dayNightRadius = dayNightLookup[dayOfYear][RADIUS];
     int dayNightMaskCentre;
@@ -178,31 +177,31 @@ void WatchyChron::drawSun() {
 void WatchyChron::drawTime() {
     const uint8_t TIME_POS_X = DISPLAY_CENTRE_X;
     const uint8_t TIME_POS_Y = DISPLAY_CENTRE_Y + 25;
-    int16_t  x1, y1;
-    uint16_t w, h;
-    String hour = "", minute = "", time_str = "";
-
-    // Build time string and calculate text bounds    
-    if(HOUR_12_24==12){
-      hour += ((currentTime.Hour+11)%12)+1;
-    } else {
-      hour += currentTime.Hour;
-    }
-    if(currentTime.Hour < 10){
-        hour = "0" + hour;
-    }
-    if(currentTime.Minute < 10){
-        minute = "0";
-    }
-    minute += currentTime.Minute;
-    time_str = hour + ":" + minute;
-    display.getTextBounds(time_str, TIME_POS_X, TIME_POS_Y, &x1, &y1, &w, &h);
-    // Centre-align text and print
-    display.setFont(&FreeSansBold9pt7b);
+    display.setFont(&MADE_Sunflower_PERSONAL_USE39pt7b);
     display.setTextColor(foregroundColor);
-    display.setCursor(TIME_POS_X - w / 2, TIME_POS_Y);
-    display.println(time_str);
+    display.setTextWrap(false);
+    char* timeStr;
+    asprintf(&timeStr, "%d:%02d", currentTime.Hour, currentTime.Minute);
+    drawCenteredString(timeStr, TIME_POS_X, TIME_POS_Y, false);
+    free(timeStr);
 }
+
+void WatchyChron::drawCenteredString(const String &str, int x, int y, bool drawBg) {
+          int16_t x1, y1;
+          uint16_t w, h;
+
+          display.getTextBounds(str, x, y, &x1, &y1, &w, &h);
+//          printf("bounds: %d x %d y, %d x1 %d y1, %d w, %d h\n", 0, 100, x1, y1, w, h);
+          display.setCursor(x - w / 2, y);
+          if(drawBg) {
+            int padY = 3;
+            int padX = 10;
+            display.fillRect(x - (w / 2 + padX), y - (h + padY), w + padX*2, h + padY*2, backgroundColor);
+          }
+          // uncomment to draw bounding box
+//          display.drawRect(x - w / 2, y - h, w, h, GxEPD_WHITE);
+          display.print(str);
+        }
 
 void WatchyChron::handleButtonPress() {
 uint64_t wakeupBit = esp_sleep_get_ext1_wakeup_status();

@@ -7,6 +7,7 @@
 #include "DSEG7_Classic_Bold_25.h"
 #include "DSEG7_Classic_Regular_39.h"
 #include <Fonts/FreeSansBold9pt7b.h>
+#include "MadeSunflower39pt7b.h"
 #include "icons.h"
 #include "lookups.h"
 
@@ -21,6 +22,7 @@ class WatchyChron : public Watchy{
         void drawSteps();
         void drawSun();
         void drawTime();
+        void drawCenteredString(const String &str, int x, int y, bool drawBg);
         void handleButtonPress();
 };
 

@@ -8,7 +8,6 @@
 #include "DSEG7_Classic_Regular_39.h"
 #include <Fonts/FreeSansBold9pt7b.h>
 #include "MadeSunflower39pt7b.h"
-#include "icons.h"
 #include "lookups.h"
 
 class WatchyChron : public Watchy{

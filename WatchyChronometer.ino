@@ -1,4 +1,4 @@
-#include "Watchy_Chronometer.h"
+#include "WatchyChronometer.h"
 #include "settings.h"
 WatchyChron watchy(settings);
 

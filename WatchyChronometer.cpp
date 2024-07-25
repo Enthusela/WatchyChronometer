@@ -143,36 +143,6 @@ void WatchyChron::drawSun() {
             index += 2;
         }
         index = min(index, bmp_moonWax2qrt_array_max_index);
-        // positive mask is 24 pixels wide: 
-        // don't show for newmoon
-        // offset 0 for wax1qrt
-        // offset 8 for wax2qrt
-        // offset 16 for wax3qrt
-        // fullmoon for fullmoon
-        // offset 24 for wane3qrt
-        // offset 32 for wane2qrt
-        // offset 40 for wane1qrt
-        uint8_t phase_offset = 0;
-        // Calculate moon position
-        const uint8_t midnight_x_pos = DISPLAY_CENTRE_X;
-        const uint8_t midnight_y_pos = DISPLAY_CENTRE_Y + border_radius;
-        const uint8_t moon_phase_add_mask_width = 24;
-        const uint8_t moon_phase_add_mask_height = 33;
-        uint8_t moon_phase_add_mask_pos_x = midnight_x_pos - moon_phase_add_mask_width + phase_offset;
-        uint8_t moon_phase_add_mask_pos_y = midnight_y_pos - (moon_phase_add_mask_height / 2);
-        // midnight is -HALF_PI from zero_angle
-        xyPoint moon_phase_add_mask_pos = rotatePointAround(moon_phase_add_mask_pos_x,
-                                                            moon_phase_add_mask_pos_y,
-                                                            DISPLAY_CENTRE_X,
-                                                            DISPLAY_CENTRE_Y,
-                                                            angle + HALF_PI);
-        display.drawBitmap(moon_phase_add_mask_pos.x,
-                            moon_phase_add_mask_pos.y,
-                            bmp_moonWax2qrt_array[index],
-                            moon_phase_add_mask_width,
-                            moon_phase_add_mask_height,
-                            foregroundColor);
-
         // Draw moon bitmap
         const uint8_t moon_icon_width = 33;
         const uint8_t moon_icon_height = 33;

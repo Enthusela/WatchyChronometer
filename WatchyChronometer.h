@@ -22,14 +22,17 @@ class WatchyChron : public Watchy{
         void drawMasks();
         void drawSteps();
         void drawSun();
-        struct xyPoint rotatePointAround(int x, int y, int ox, int oy, double angle);
+        void showShoppingList(byte listIndex, bool partialRefresh);
         void drawTime();
         void drawCenteredString(const String &str, int x, int y, bool drawBg);
         void handleButtonPress();
+        void showMenu(byte menuIndex, bool partialRefresh);
+        void showFastMenu(byte menuIndex);
 };
 
 extern RTC_DATA_ATTR bool showTime;
 extern RTC_DATA_ATTR bool showStats;
 extern RTC_DATA_ATTR bool darkMode;
+extern RTC_DATA_ATTR int listIndex;
 
 #endif

@@ -27,8 +27,8 @@ uint16_t dayOfYear = 0;
 RTC_DATA_ATTR bool showTime = false;
 RTC_DATA_ATTR bool showStats = false;
 RTC_DATA_ATTR bool darkMode = false;
+RTC_DATA_ATTR int listIndex;
 RTC_DATA_ATTR uint8_t prevDay = 0;
-
 const char *listItems[] = {
     //  "---------------"
         "3 red capsicum",
@@ -53,6 +53,17 @@ struct xyPoint {
   int x;
   int y;
 };
+
+struct xyPoint rotatePointAround(int x, int y, int ox, int oy, double angle) {
+  // rotate X,Y point around given origin point by a given angle
+  // based on https://gist.github.com/LyleScott/e36e08bfb23b1f87af68c9051f985302#file-rotate_2d_point-py-L38
+  double qx = (double)ox + (cos(angle) * (double)(x - ox)) + (sin(angle) * (double)(y - oy));
+  double qy = (double)oy + (-sin(angle) * (double)(x - ox)) + (cos(angle) * (double)(y - oy));
+  struct xyPoint newPoint;
+  newPoint.x = (int)qx;
+  newPoint.y = (int)qy;
+  return newPoint;
+}
 
 void WatchyChron::drawWatchFace() {
     dayOfYear = monthStartDay[currentTime.Month] + currentTime.Day;
@@ -91,12 +102,10 @@ void WatchyChron::drawDayNight() {
     int dayNightCentre = dayNightLookup[dayOfYear][CENTRE];
     int dayNightRadius = dayNightLookup[dayOfYear][RADIUS];
     int dayNightMaskCentre;
-    if (dayNightCentre > 0)
-    {
+    if (dayNightCentre > 0) {
         dayNightMaskCentre = dayNightCentre + DAY_NIGHT_THICKNESS;
     }
-    else
-    {
+    else {
         dayNightMaskCentre = dayNightCentre - DAY_NIGHT_THICKNESS;
     }
     display.fillCircle(DISPLAY_WIDTH / 2, dayNightCentre, dayNightRadius, foregroundColor);
@@ -172,18 +181,6 @@ void WatchyChron::drawSun() {
         display.drawBitmap(moon_x_pos, moon_y_pos, bmp_moonWax2qrt_array[index], moon_icon_width, moon_icon_height, foregroundColor);
         display.drawBitmap(sun_x_pos, sun_y_pos, sunBorderNoRays, sun_icon_width, sun_icon_height, foregroundColor);
     }
-}
-
-
-struct xyPoint rotatePointAround(int x, int y, int ox, int oy, double angle) {
-  // rotate X,Y point around given origin point by a given angle
-  // based on https://gist.github.com/LyleScott/e36e08bfb23b1f87af68c9051f985302#file-rotate_2d_point-py-L38
-  double qx = (double)ox + (cos(angle) * (double)(x - ox)) + (sin(angle) * (double)(y - oy));
-  double qy = (double)oy + (-sin(angle) * (double)(x - ox)) + (cos(angle) * (double)(y - oy));
-  struct xyPoint newPoint;
-  newPoint.x = (int)qx;
-  newPoint.y = (int)qy;
-  return newPoint;
 }
 
 
@@ -529,7 +526,7 @@ void WatchyChron::showMenu(byte menuIndex, bool partialRefresh) {
   alreadyInMenu = false;
 }
 
-void Watchy::showFastMenu(byte menuIndex) {
+void WatchyChron::showFastMenu(byte menuIndex) {
   display.setFullWindow();
   display.fillScreen(GxEPD_BLACK);
   display.setFont(&FreeMonoBold9pt7b);
@@ -594,8 +591,8 @@ void WatchyChron::showShoppingList(byte listIndex, bool partialRefresh) {
             display.setTextColor(GxEPD_WHITE);
             display.println(listItems[i]);
         }
-        if checkedItems[i] {
-            display.drawLine(x1 - 1, y1 + h/2, i == listIndex ? GxEPD_BLACK : GxEPD_WHITE);
+        if (listChecks[i]) {
+            display.drawLine(x1 - 1, y1 + h/2, 200, y1 + h/2, i == listIndex ? GxEPD_BLACK : GxEPD_WHITE);
         }
     }
     display.display(partialRefresh);

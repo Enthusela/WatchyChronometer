@@ -1,0 +1,23 @@
+- Replace showBuzz with showShoppingList in handleButtonPress
+- Write showShoppingList
+    - sets guiState to SHOPLIST_STATE
+    - Don't use the showTime method of looping to keep the chip awake: use the menu method of waking on press
+        - This is so I can leave the watch on the list for long periods while shopping without running down the battery 
+    - Modified version of showMenu
+    - How do I do screen rollover?
+        - var list length: needs to be determined on load so we can find end of list and display empty menu items
+        - const max items on screen: defined as MENU_LENGTH
+        - arg list index
+        - arg list stt index
+        - pass index into function
+        - always display listItems[sttIndex:sttIndex+MENU_LENGTH-1]
+        - update highlighted menu item as per index
+        - if index is inside current range, use showFastMenu to update selection 
+        - if index is outside current range, use showMenu to update displayed items and selection
+        - If enter button is pressed, toggle the checked state
+            - if guiState == SHOPLIST_STATE toggleItem(listindex)
+            - Also draw line to strikethrough the menu item cause that sounds nice
+    - char-ptr array containing list item strings (qty and name)
+    - Images: checked and unchecked checkbox
+    - Offset list items by checkbox width
+- Consider adding shopping list to upper-right (down) button

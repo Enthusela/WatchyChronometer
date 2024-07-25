@@ -29,6 +29,26 @@ RTC_DATA_ATTR bool showStats = false;
 RTC_DATA_ATTR bool darkMode = false;
 RTC_DATA_ATTR uint8_t prevDay = 0;
 
+const char *listItems[] = {
+    //  "---------------"
+        "3 red capsicum",
+        "400g mushroom",
+        "1.5kg chicken",
+        "One pc garlic",
+        "1 pkt salad",
+        "3 tins beans",
+        "500ml Ckn Stock",
+        "3 red capsicum",
+        "400g mushroom",
+        "1.5kg chicken",
+        "One pc garlic",
+        "1 pkt salad",
+        "3 tins beans",
+        "500ml Ckn Stock",
+    };
+const uint8_t listLen = 14; // Constant for now while I'm hashing this out
+bool listChecks[listLen];
+
 struct xyPoint {
   int x;
   int y;
@@ -283,7 +303,6 @@ void WatchyChron::drawBattery() {
     }
 }
 
-
 void WatchyChron::handleButtonPress() {
   uint64_t wakeupBit = esp_sleep_get_ext1_wakeup_status();
   // Menu Button
@@ -298,7 +317,7 @@ void WatchyChron::handleButtonPress() {
           showAbout();
           break;
       case 1:
-          showBuzz();
+          showShoppingList(0, false);
           break;
       case 2:
           showAccelerometer();
@@ -335,6 +354,8 @@ void WatchyChron::handleButtonPress() {
           darkMode = !darkMode;
           RTC.read(currentTime);
           showWatchFace(true);
+      } else if (guiState == SHOPLIST_STATE) {
+        showMenu(menuIndex, false); // exit to menu if in shopping list
       }
   }
   // Up Button
@@ -349,6 +370,12 @@ void WatchyChron::handleButtonPress() {
           showStats = !showStats;
           RTC.read(currentTime);
           showWatchFace(true);
+      } else if (guiState == SHOPLIST_STATE) {  // increment list index (index decr, selection moves up screen)
+        listIndex--;
+        if (listIndex < 0) {
+            listIndex = listLen;
+        }
+        showShoppingList(listIndex, true);
       }
   }
   // Down Button
@@ -363,6 +390,12 @@ void WatchyChron::handleButtonPress() {
           showTime = !showTime;
           RTC.read(currentTime);
           showWatchFace(true);
+      } else if (guiState == SHOPLIST_STATE) {  // decrement list index (index incr, selection moves down screen)
+        listIndex++;
+        if (listIndex >= listLen) {
+            listIndex = 0;
+        }
+        showShoppingList(listIndex, true);
       }
   }
 
@@ -386,7 +419,7 @@ void WatchyChron::handleButtonPress() {
             showAbout();
             break;
           case 1:
-            showBuzz();
+            showShoppingList(0, false);
             break;
           case 2:
             showAccelerometer();
@@ -411,8 +444,7 @@ void WatchyChron::handleButtonPress() {
         }
       } else if (digitalRead(BACK_BTN_PIN) == 1) {
         lastTimeout = millis();
-        if (guiState ==
-            MAIN_MENU_STATE) { // exit to watch face if already in menu
+        if (guiState == MAIN_MENU_STATE) { // exit to watch face if already in menu
           RTC.read(currentTime);
           showWatchFace(false);
           break; // leave loop
@@ -422,6 +454,8 @@ void WatchyChron::handleButtonPress() {
           showMenu(menuIndex, false); // exit to menu if already in app
         } else if (guiState == WATCHFACE_STATE) {
           timeout = true;
+        } else if (guiState == SHOPLIST_STATE) {
+          showMenu(menuIndex, false); // exit to menu if in shopping list
         }
       } else if (digitalRead(UP_BTN_PIN) == 1) {
         lastTimeout = millis();
@@ -433,6 +467,12 @@ void WatchyChron::handleButtonPress() {
           showFastMenu(menuIndex);
         } else if (guiState == WATCHFACE_STATE) {
             timeout = true;
+        } else if (guiState == SHOPLIST_STATE) {  // increment list index (index decr, selection moves up screen)
+          listIndex--;
+          if (listIndex < 0) {
+              listIndex = listLen;
+          }
+          showShoppingList(listIndex, true);
         }
       } else if (digitalRead(DOWN_BTN_PIN) == 1) {
         lastTimeout = millis();
@@ -444,8 +484,122 @@ void WatchyChron::handleButtonPress() {
           showFastMenu(menuIndex);
         } else if (guiState == WATCHFACE_STATE) {
             timeout = true;
+        } else if (guiState == SHOPLIST_STATE) {  // increment list index (index decr, selection moves up screen)
+          listIndex--;
+          if (listIndex < 0) {
+            listIndex = listLen;
+          }
+          showShoppingList(listIndex, true);
         }
       }
     }
   }
+}
+
+void WatchyChron::showMenu(byte menuIndex, bool partialRefresh) {
+  display.setFullWindow();
+  display.fillScreen(GxEPD_BLACK);
+  display.setFont(&FreeMonoBold9pt7b);
+
+  int16_t x1, y1;
+  uint16_t w, h;
+  int16_t yPos;
+
+  const char *menuItems[] = {
+      "About Watchy", "Shopping List", "Show Accelerometer",
+      "Set Time",     "Setup WiFi",    "Update Firmware",
+      "Sync NTP"};
+  for (int i = 0; i < MENU_LENGTH; i++) {
+    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
+    display.setCursor(0, yPos);
+    if (i == menuIndex) {
+      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
+      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      display.setTextColor(GxEPD_BLACK);
+      display.println(menuItems[i]);
+    } else {
+      display.setTextColor(GxEPD_WHITE);
+      display.println(menuItems[i]);
+    }
+  }
+
+  display.display(partialRefresh);
+
+  guiState = MAIN_MENU_STATE;
+  alreadyInMenu = false;
+}
+
+void Watchy::showFastMenu(byte menuIndex) {
+  display.setFullWindow();
+  display.fillScreen(GxEPD_BLACK);
+  display.setFont(&FreeMonoBold9pt7b);
+
+  int16_t x1, y1;
+  uint16_t w, h;
+  int16_t yPos;
+
+  const char *menuItems[] = {
+      "About Watchy", "Shopping List", "Show Accelerometer",
+      "Set Time",     "Setup WiFi",    "Update Firmware",
+      "Sync NTP"};
+  for (int i = 0; i < MENU_LENGTH; i++) {
+    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
+    display.setCursor(0, yPos);
+    if (i == menuIndex) {
+      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
+      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
+      display.setTextColor(GxEPD_BLACK);
+      display.println(menuItems[i]);
+    } else {
+      display.setTextColor(GxEPD_WHITE);
+      display.println(menuItems[i]);
+    }
+  }
+
+  display.display(true);
+
+  guiState = MAIN_MENU_STATE;
+}
+
+// TODO: showMenu, showShoppingList, showFastMenu, and showShoppingList are near-identical:
+    // Investigate consolidating code into fn/wrappers
+void WatchyChron::showShoppingList(byte listIndex, bool partialRefresh) {
+    static uint16_t lastListSttIndex = 0;
+    display.setFullWindow();
+    display.fillScreen(GxEPD_BLACK);
+    display.setFont(&FreeMonoBold9pt7b);
+
+    int16_t x1, y1;
+    uint16_t w, h;
+    int16_t yPos;
+
+    const uint8_t maxItemLen = 18; // max chars in item not including null char
+    // const uint8_t maxItemLenExclCheckbox = 15; // assuming two-char checkbox plus space
+    const uint16_t listSttIndex = (listIndex / MENU_LENGTH) * MENU_LENGTH;
+    if (listSttIndex != lastListSttIndex) {
+        // Paged up or down: do a full refresh
+        partialRefresh = false;
+    }
+    lastListSttIndex = listSttIndex;
+
+    for (int i = listSttIndex; i < listSttIndex + MENU_LENGTH && i < listLen; i++) {
+        yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
+        display.setCursor(0, yPos);
+        if (i == listIndex) {
+            display.getTextBounds(listItems[i], 0, yPos, &x1, &y1, &w, &h);
+            display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE); // 200 might just be display width
+            display.setTextColor(GxEPD_BLACK);
+            display.println(listItems[i]);
+        } else {
+            display.setTextColor(GxEPD_WHITE);
+            display.println(listItems[i]);
+        }
+        if checkedItems[i] {
+            display.drawLine(x1 - 1, y1 + h/2, i == listIndex ? GxEPD_BLACK : GxEPD_WHITE);
+        }
+    }
+    display.display(partialRefresh);
+    guiState = SHOPLIST_STATE;
+    // Prevent exiting to watchface when in shopping list
+    alreadyInMenu = false;
 }

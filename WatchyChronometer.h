@@ -10,6 +10,8 @@
 #include "MadeSunflower39pt7b.h"
 #include "lookups.h"
 
+#define SHOPLIST_STATE 10 // Start custom states from 10 to allow room for official updates
+
 class WatchyChron : public Watchy{
     using Watchy::Watchy;
     public:

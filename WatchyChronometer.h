@@ -9,8 +9,7 @@
 #include <Fonts/FreeSansBold9pt7b.h>
 #include "MadeSunflower39pt7b.h"
 #include "lookups.h"
-
-#define SHOPLIST_STATE 10 // Start custom states from 10 to allow room for official updates
+#include "icons.h"
 
 class WatchyChron : public Watchy{
     using Watchy::Watchy;
@@ -18,21 +17,19 @@ class WatchyChron : public Watchy{
         void drawWatchFace();
         void drawBattery();
         void drawDate();
-        void drawDayNight();
+        void drawSunriseSunsetLine();
         void drawMasks();
         void drawSteps();
-        void drawSun();
-        void showShoppingList(byte listIndex, bool partialRefresh);
-        void drawTime();
+        void drawSundialTime();
+        uint8_t getMoonPhase();
+        uint16_t getMoonImageIndex();
+        void drawDigitalTime();
         void drawCenteredString(const String &str, int x, int y, bool drawBg);
         void handleButtonPress();
-        void showMenu(byte menuIndex, bool partialRefresh);
-        void showFastMenu(byte menuIndex);
 };
 
-extern RTC_DATA_ATTR bool showTime;
+extern RTC_DATA_ATTR bool showDigitalTime;
 extern RTC_DATA_ATTR bool showStats;
 extern RTC_DATA_ATTR bool darkMode;
-extern RTC_DATA_ATTR int listIndex;
 
 #endif

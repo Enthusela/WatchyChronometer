@@ -1,6 +1,5 @@
 #include "WatchyChronometer.h"
-#include "icons.h"
-#include "moon_bitmaps.h"
+#include "bmp_moon.h"
 
 #define BORDER_THICKNESS 4
 #define DAY_NIGHT_THICKNESS 3
@@ -14,77 +13,48 @@
 #define ZERO_MINUTE 360
 #define MINUTES_PER_DAY 1440.0
 #define CIRCLE_DEGREES 360.0
-// First image corresponds to 5pm (last to 7am)
 #define ZERO_INDEX_HOUR 17
-// First image at 5pm plus two images per hour puts midnight at index 14
-#define MIDNIGHT_INDEX 14
+// Must be a factor of 15
+// 3 degrees per image: MIN_PER_IMAGE = 60 / (15 / DEGREES_PER_IMAGE) = 12
+#define MIN_PER_IMAGE 12
+#define MAX_IMAGE_INDEX 75
+#define SUN_ICON_WIDTH 65
+#define SUN_ICON_HEIGHT 65
+#define MOON_ICON_WIDTH 32
+#define MOON_ICON_HEIGHT 32
+#define NEW_MOON_PHASE_INDEX 0
+#define FULL_MOON_PHASE_INDEX 4
+// Datum New Moon at 06/07/2024 (https://www.perthobservatory.com.au/wp-content/uploads/moon-phases-2024.pdf)
+// Day of year = 6 + 182 (start day of July 2024, from monthStartDayLeapYear[])
+#define DATUM_NEW_MOON_DAY_OF_YEAR 188
+#define DATUM_NEW_MOON_YEAR 2024
 
 const uint8_t DISPLAY_CENTRE_X = DISPLAY_WIDTH / 2;
 const uint8_t DISPLAY_CENTRE_Y = DISPLAY_HEIGHT / 2;
 uint16_t foregroundColor = GxEPD_BLACK;
 uint16_t backgroundColor = GxEPD_WHITE;
 uint16_t dayOfYear = 0;
-RTC_DATA_ATTR bool showTime = false;
+RTC_DATA_ATTR bool showDigitalTime = false;
 RTC_DATA_ATTR bool showStats = false;
 RTC_DATA_ATTR bool darkMode = false;
-RTC_DATA_ATTR int listIndex;
 RTC_DATA_ATTR uint8_t prevDay = 0;
-const char *listItems[] = {
-    //  "---------------"
-        "3 red capsicum",
-        "400g mushroom",
-        "1.5kg chicken",
-        "One pc garlic",
-        "1 pkt salad",
-        "3 tins beans",
-        "500ml Ckn Stock",
-        "3 red capsicum",
-        "400g mushroom",
-        "1.5kg chicken",
-        "One pc garlic",
-        "1 pkt salad",
-        "3 tins beans",
-        "500ml Ckn Stock",
-    };
-const uint8_t listLen = 14; // Constant for now while I'm hashing this out
-bool listChecks[listLen];
-
-struct xyPoint {
-  int x;
-  int y;
-};
-
-struct xyPoint rotatePointAround(int x, int y, int ox, int oy, double angle) {
-  // rotate X,Y point around given origin point by a given angle
-  // based on https://gist.github.com/LyleScott/e36e08bfb23b1f87af68c9051f985302#file-rotate_2d_point-py-L38
-  double qx = (double)ox + (cos(angle) * (double)(x - ox)) + (sin(angle) * (double)(y - oy));
-  double qy = (double)oy + (-sin(angle) * (double)(x - ox)) + (cos(angle) * (double)(y - oy));
-  struct xyPoint newPoint;
-  newPoint.x = (int)qx;
-  newPoint.y = (int)qy;
-  return newPoint;
-}
 
 void WatchyChron::drawWatchFace() {
-    dayOfYear = monthStartDay[currentTime.Month] + currentTime.Day;
+    if (tmYearToCalendar(currentTime.Year) % 4) {
+        dayOfYear = monthStartDay[currentTime.Month] + currentTime.Day;
+    } else {
+        dayOfYear = monthStartDayLeapYear[currentTime.Month] + currentTime.Day;
+    }
     foregroundColor = darkMode ? GxEPD_BLACK : GxEPD_WHITE;
     backgroundColor = darkMode ? GxEPD_WHITE : GxEPD_BLACK;
-    uint8_t currDay = currentTime.Day;
-    if (currDay != prevDay) {
-      // recalculate sunrise/sunset
-      // redraw day/night line
-    }
     display.fillScreen(backgroundColor);
-    if (!showTime) {
-      drawDayNight();
-    }
-    prevDay = currDay;
-    if (!showTime) {
-      drawSun();
+    if (!showDigitalTime) {
+      drawSunriseSunsetLine();
+      drawSundialTime();
     }
     drawMasks();
-    if (showTime) {
-        drawTime();
+    if (showDigitalTime) {
+        drawDigitalTime();
         drawDate();
     }
     if (showStats) {
@@ -97,7 +67,7 @@ void WatchyChron::drawWatchFace() {
 }
 
 
-void WatchyChron::drawDayNight() {
+void WatchyChron::drawSunriseSunsetLine() {
     // display.fillScreen(backgroundColor);
     int dayNightCentre = dayNightLookup[dayOfYear][CENTRE];
     int dayNightRadius = dayNightLookup[dayOfYear][RADIUS];
@@ -113,44 +83,66 @@ void WatchyChron::drawDayNight() {
 }
 
 
-void WatchyChron::drawSun() {
-    uint16_t sunriseMinute = dayNightLookup[dayOfYear][SUNRISE];
-    uint16_t sunsetMinute = dayNightLookup[dayOfYear][SUNSET];
+void WatchyChron::drawSundialTime() {
+    const uint16_t sunriseMinute = dayNightLookup[dayOfYear][SUNRISE];
+    const uint16_t sunsetMinute = dayNightLookup[dayOfYear][SUNSET];
     const uint8_t border_radius = DISPLAY_HEIGHT / 2 - BORDER_THICKNESS / 2;
-    const uint8_t sun_icon_width = 65;
-    const uint8_t sun_icon_height = 65;
-    // Calculate angular pos in radians of current minute relative to 0 (6am)
-    float currentMinute = currentTime.Hour * 60 + currentTime.Minute;
-    float angle = (currentMinute - ZERO_MINUTE) / MINUTES_PER_DAY * TWO_PI;
-    int sun_x_pos = DISPLAY_CENTRE_X + border_radius * cos(angle) - (sun_icon_width / 2);
-    int sun_y_pos = DISPLAY_CENTRE_Y - border_radius * sin(angle) - (sun_icon_height / 2);
-    bool daytime = currentMinute >= sunriseMinute && currentMinute < sunsetMinute;
-    if (daytime) {
-        display.drawBitmap(sun_x_pos, sun_y_pos, sunFill, sun_icon_width, sun_icon_height, foregroundColor);
-        display.drawBitmap(sun_x_pos, sun_y_pos, sunBorder, sun_icon_width, sun_icon_height, foregroundColor);
-    } else {
-        // Moon image index calculated from current time
-        uint8_t index;
-        if (currentTime.Hour >= ZERO_INDEX_HOUR) {
-            index = (currentTime.Hour - ZERO_INDEX_HOUR) * 2;
+    const float currentMinute = currentTime.Hour * 60 + currentTime.Minute;
+    const float angle = (currentMinute - ZERO_MINUTE) / MINUTES_PER_DAY * TWO_PI;
+    const int sun_x_pos = DISPLAY_CENTRE_X + border_radius * cos(angle) - (SUN_ICON_WIDTH / 2);
+    const int sun_y_pos = DISPLAY_CENTRE_Y - border_radius * sin(angle) - (SUN_ICON_HEIGHT / 2);
+    
+    const bool daytime = currentMinute >= sunriseMinute && currentMinute < sunsetMinute;
+    if (daytime) { // Draw sun
+        display.drawBitmap(sun_x_pos, sun_y_pos, sunFill, SUN_ICON_WIDTH, SUN_ICON_HEIGHT, foregroundColor);
+        display.drawBitmap(sun_x_pos, sun_y_pos, sunBorder, SUN_ICON_WIDTH, SUN_ICON_HEIGHT, foregroundColor);
+    } else { // Draw moon
+        int moon_x_pos = DISPLAY_CENTRE_X + border_radius * cos(angle) - (MOON_ICON_WIDTH / 2);
+        int moon_y_pos = DISPLAY_CENTRE_Y - border_radius * sin(angle) - (MOON_ICON_HEIGHT / 2);
+        const uint8_t moonPhase = getMoonPhase();
+        if (moonPhase == NEW_MOON_PHASE_INDEX) {
+            display.drawBitmap(sun_x_pos, sun_y_pos, sunFill, SUN_ICON_WIDTH, SUN_ICON_HEIGHT, GxEPD_BLACK);
+        } else if (moonPhase == FULL_MOON_PHASE_INDEX) {
+            display.drawBitmap(sun_x_pos, sun_y_pos, sunFill, SUN_ICON_WIDTH, SUN_ICON_HEIGHT, GxEPD_WHITE);
         } else {
-            index = MIDNIGHT_INDEX + (currentTime.Hour * 2);
+            const uint8_t index = getMoonImageIndex();
+            display.drawBitmap(sun_x_pos, sun_y_pos, sunFill, SUN_ICON_WIDTH, SUN_ICON_HEIGHT, GxEPD_BLACK);
+            display.drawBitmap(moon_x_pos, moon_y_pos, bmp_moon_array[moonPhase][index], MOON_ICON_WIDTH, MOON_ICON_HEIGHT, GxEPD_WHITE);
         }
-        if (currentTime.Minute > 15 && currentTime.Minute < 45) {
-            index += 1;
-        }
-        if (currentTime.Minute >= 45) {
-            index += 2;
-        }
-        index = min(index, bmp_moonWax2qrt_array_max_index);
-        // Draw moon bitmap
-        const uint8_t moon_icon_width = 33;
-        const uint8_t moon_icon_height = 33;
-        int moon_x_pos = DISPLAY_CENTRE_X + border_radius * cos(angle) - (moon_icon_width / 2);
-        int moon_y_pos = DISPLAY_CENTRE_Y - border_radius * sin(angle) - (moon_icon_height / 2);
-        display.drawBitmap(moon_x_pos, moon_y_pos, bmp_moonWax2qrt_array[index], moon_icon_width, moon_icon_height, foregroundColor);
-        display.drawBitmap(sun_x_pos, sun_y_pos, sunBorderNoRays, sun_icon_width, sun_icon_height, foregroundColor);
+        // Moon fill is white on black, but border matches light/dark theme
+        display.drawBitmap(sun_x_pos, sun_y_pos, moonBorder, SUN_ICON_WIDTH, SUN_ICON_HEIGHT, foregroundColor);
     }
+}
+
+
+uint8_t WatchyChron::getMoonPhase() {
+    const uint8_t yearDiff = tmYearToCalendar(currentTime.Year) - DATUM_NEW_MOON_YEAR;
+    uint16_t daysSinceDatumNewMoon = 0;
+    if (dayOfYear >= DATUM_NEW_MOON_DAY_OF_YEAR) {
+        daysSinceDatumNewMoon = (dayOfYear - DATUM_NEW_MOON_DAY_OF_YEAR) + (365 * yearDiff);
+    } else {
+        // Current time must be after datum, so yearDiff >= 1 if currentDayOfYear < datumDayOfYear
+        // Datum New Moon must be in the past for this part of the calculation to work
+        daysSinceDatumNewMoon = (365 - DATUM_NEW_MOON_DAY_OF_YEAR) + dayOfYear + (365 * (yearDiff - 1));
+    }
+    // Lunar cycle = 29.5 days, 8 phases, 29.5 / 8 ~3.688, 100x everything to enable modulo
+    // return min(7, ((daysSinceDatumNewMoon * 100) % 2950) / 369);
+    return min(uint8_t(7), uint8_t(round(float((daysSinceDatumNewMoon * 100) % 2953) / 368.8)));
+}
+
+
+uint16_t WatchyChron::getMoonImageIndex() {
+    const uint16_t minutesSinceMidnight = currentTime.Hour * 60 + currentTime.Minute;
+    uint16_t minutesSinceFirstImage = 0;
+    if (currentTime.Hour >= ZERO_INDEX_HOUR) {
+        minutesSinceFirstImage = minutesSinceMidnight - (ZERO_INDEX_HOUR * 60);
+    } else {
+        minutesSinceFirstImage = ((24 - ZERO_INDEX_HOUR) * 60) + minutesSinceMidnight;
+    }
+    uint16_t index = (minutesSinceFirstImage + (MIN_PER_IMAGE / 2)) / MIN_PER_IMAGE;
+    index > MAX_IMAGE_INDEX ? MAX_IMAGE_INDEX : index;
+    
+    return index;
 }
 
 
@@ -160,7 +152,7 @@ void WatchyChron::drawMasks() {
 }
 
 
-void WatchyChron::drawTime() {
+void WatchyChron::drawDigitalTime() {
     const uint8_t TIME_POS_X = DISPLAY_CENTRE_X;
     const uint8_t TIME_POS_Y = DISPLAY_CENTRE_Y + 25;
     display.setFont(&MADE_Sunflower_PERSONAL_USE39pt7b);
@@ -220,7 +212,7 @@ void WatchyChron::drawSteps() {
     const uint8_t STEP_POS_Y = 50;
 
     // Reset step counter at midnight
-    if (currentTime.Hour == 0 && currentTime.Minute == 0){
+    if (currentTime.Hour == 0 && currentTime.Minute == 0) {
       sensor.resetStepCounter();
     }
     uint32_t stepCount = sensor.getCounter();
@@ -270,303 +262,165 @@ void WatchyChron::drawBattery() {
     }
 }
 
+
 void WatchyChron::handleButtonPress() {
-  uint64_t wakeupBit = esp_sleep_get_ext1_wakeup_status();
-  // Menu Button
-  if (wakeupBit & MENU_BTN_MASK) {
-      if (guiState ==
-          WATCHFACE_STATE) { // enter menu state if coming from watch face
-      showMenu(menuIndex, false);
-      } else if (guiState ==
-              MAIN_MENU_STATE) { // if already in menu, then select menu item
-      switch (menuIndex) {
-      case 0:
-          showAbout();
-          break;
-      case 1:
-          showShoppingList(0, false);
-          break;
-      case 2:
-          showAccelerometer();
-          break;
-      case 3:
-          setTime();
-          break;
-      case 4:
-          setupWifi();
-          break;
-      case 5:
-          showUpdateFW();
-          break;
-      case 6:
-          showSyncNTP();
-          break;
-      default:
-          break;
-      }
-      } else if (guiState == FW_UPDATE_STATE) {
-      updateFWBegin();
-      }
-  }
-  // Back Button
-  else if (wakeupBit & BACK_BTN_MASK) {
-      if (guiState == MAIN_MENU_STATE) { // exit to watch face if already in menu
-      RTC.read(currentTime);
-      showWatchFace(false);
-      } else if (guiState == APP_STATE) {
-      showMenu(menuIndex, false); // exit to menu if already in app
-      } else if (guiState == FW_UPDATE_STATE) {
-      showMenu(menuIndex, false); // exit to menu if already in app
-      } else if (guiState == WATCHFACE_STATE) {
-          darkMode = !darkMode;
-          RTC.read(currentTime);
-          showWatchFace(true);
-      } else if (guiState == SHOPLIST_STATE) {
-        showMenu(menuIndex, false); // exit to menu if in shopping list
-      }
-  }
-  // Up Button
-  else if (wakeupBit & UP_BTN_MASK) {
-      if (guiState == MAIN_MENU_STATE) { // increment menu index
-      menuIndex--;
-      if (menuIndex < 0) {
-          menuIndex = MENU_LENGTH - 1;
-      }
-      showMenu(menuIndex, true);
-      } else if (guiState == WATCHFACE_STATE) { // Toggle stats
-          showStats = !showStats;
-          RTC.read(currentTime);
-          showWatchFace(true);
-      } else if (guiState == SHOPLIST_STATE) {  // increment list index (index decr, selection moves up screen)
-        listIndex--;
-        if (listIndex < 0) {
-            listIndex = listLen;
-        }
-        showShoppingList(listIndex, true);
-      }
-  }
-  // Down Button
-  else if (wakeupBit & DOWN_BTN_MASK) {
-      if (guiState == MAIN_MENU_STATE) { // decrement menu index
-      menuIndex++;
-      if (menuIndex > MENU_LENGTH - 1) {
-          menuIndex = 0;
-      }
-      showMenu(menuIndex, true);
-      } else if (guiState == WATCHFACE_STATE) { // Toggle time
-          showTime = !showTime;
-          RTC.read(currentTime);
-          showWatchFace(true);
-      } else if (guiState == SHOPLIST_STATE) {  // decrement list index (index incr, selection moves down screen)
-        listIndex++;
-        if (listIndex >= listLen) {
-            listIndex = 0;
-        }
-        showShoppingList(listIndex, true);
-      }
-  }
-
-  /***************** fast menu *****************/
-  bool timeout     = false;
-  long lastTimeout = millis();
-  pinMode(MENU_BTN_PIN, INPUT);
-  pinMode(BACK_BTN_PIN, INPUT);
-  pinMode(UP_BTN_PIN, INPUT);
-  pinMode(DOWN_BTN_PIN, INPUT);
-  while (!timeout) {
-    if (millis() - lastTimeout > 5000) {
-      timeout = true;
-    } else {
-      if (digitalRead(MENU_BTN_PIN) == 1) {
-        lastTimeout = millis();
-        if (guiState ==
-            MAIN_MENU_STATE) { // if already in menu, then select menu item
-          switch (menuIndex) {
-          case 0:
-            showAbout();
-            break;
-          case 1:
-            showShoppingList(0, false);
-            break;
-          case 2:
-            showAccelerometer();
-            break;
-          case 3:
-            setTime();
-            break;
-          case 4:
-            setupWifi();
-            break;
-          case 5:
-            showUpdateFW();
-            break;
-          case 6:
-            showSyncNTP();
-            break;
-          default:
-            break;
-          }
+    uint64_t wakeupBit = esp_sleep_get_ext1_wakeup_status();
+    // Menu Button
+    if (wakeupBit & MENU_BTN_MASK) {
+        if (guiState == WATCHFACE_STATE) { // enter menu state if coming from watch face
+            showMenu(menuIndex, false);
+        } else if (guiState == MAIN_MENU_STATE) { // if already in menu, then select menu item
+            switch (menuIndex) {
+                case 0:
+                    showAbout();
+                    break;
+                case 1:
+                    showBuzz();
+                    break;
+                case 2:
+                    showAccelerometer();
+                    break;
+                case 3:
+                    setTime();
+                    break;
+                case 4:
+                    setupWifi();
+                    break;
+                case 5:
+                    showUpdateFW();
+                    break;
+                case 6:
+                    showSyncNTP();
+                    break;
+                default:
+                    break;
+            }
         } else if (guiState == FW_UPDATE_STATE) {
-          updateFWBegin();
+            updateFWBegin();
         }
-      } else if (digitalRead(BACK_BTN_PIN) == 1) {
-        lastTimeout = millis();
+    }
+    // Back Button
+    else if (wakeupBit & BACK_BTN_MASK) {
         if (guiState == MAIN_MENU_STATE) { // exit to watch face if already in menu
-          RTC.read(currentTime);
-          showWatchFace(false);
-          break; // leave loop
+            RTC.read(currentTime);
+            showWatchFace(false);
         } else if (guiState == APP_STATE) {
-          showMenu(menuIndex, false); // exit to menu if already in app
+            showMenu(menuIndex, false); // exit to menu if already in app
         } else if (guiState == FW_UPDATE_STATE) {
-          showMenu(menuIndex, false); // exit to menu if already in app
+            showMenu(menuIndex, false); // exit to menu if already in app
         } else if (guiState == WATCHFACE_STATE) {
-          timeout = true;
-        } else if (guiState == SHOPLIST_STATE) {
-          showMenu(menuIndex, false); // exit to menu if in shopping list
+            darkMode = !darkMode;
+            RTC.read(currentTime);
+            showWatchFace(true);
         }
-      } else if (digitalRead(UP_BTN_PIN) == 1) {
-        lastTimeout = millis();
+    }
+    // Up Button
+    else if (wakeupBit & UP_BTN_MASK) {
         if (guiState == MAIN_MENU_STATE) { // increment menu index
-          menuIndex--;
-          if (menuIndex < 0) {
+        menuIndex--;
+        if (menuIndex < 0) {
             menuIndex = MENU_LENGTH - 1;
-          }
-          showFastMenu(menuIndex);
-        } else if (guiState == WATCHFACE_STATE) {
-            timeout = true;
-        } else if (guiState == SHOPLIST_STATE) {  // increment list index (index decr, selection moves up screen)
-          listIndex--;
-          if (listIndex < 0) {
-              listIndex = listLen;
-          }
-          showShoppingList(listIndex, true);
         }
-      } else if (digitalRead(DOWN_BTN_PIN) == 1) {
-        lastTimeout = millis();
+        showMenu(menuIndex, true);
+        } else if (guiState == WATCHFACE_STATE) { // Toggle stats
+            showStats = !showStats;
+            RTC.read(currentTime);
+            showWatchFace(true);
+        }
+    }
+    // Down Button
+    else if (wakeupBit & DOWN_BTN_MASK) {
         if (guiState == MAIN_MENU_STATE) { // decrement menu index
-          menuIndex++;
-          if (menuIndex > MENU_LENGTH - 1) {
-            menuIndex = 0;
-          }
-          showFastMenu(menuIndex);
-        } else if (guiState == WATCHFACE_STATE) {
+            menuIndex++;
+            if (menuIndex > MENU_LENGTH - 1) {
+                menuIndex = 0;
+            }
+            showMenu(menuIndex, true);
+        } else if (guiState == WATCHFACE_STATE) { // Toggle time
+            showDigitalTime = !showDigitalTime;
+            RTC.read(currentTime);
+            showWatchFace(true);
+        }
+    }
+
+    /***************** fast menu *****************/
+    bool timeout     = false;
+    long lastTimeout = millis();
+    pinMode(MENU_BTN_PIN, INPUT);
+    pinMode(BACK_BTN_PIN, INPUT);
+    pinMode(UP_BTN_PIN, INPUT);
+    pinMode(DOWN_BTN_PIN, INPUT);
+    while (!timeout) {
+        if (millis() - lastTimeout > 5000) {
             timeout = true;
-        } else if (guiState == SHOPLIST_STATE) {  // increment list index (index decr, selection moves up screen)
-          listIndex--;
-          if (listIndex < 0) {
-            listIndex = listLen;
-          }
-          showShoppingList(listIndex, true);
-        }
-      }
-    }
-  }
-}
-
-void WatchyChron::showMenu(byte menuIndex, bool partialRefresh) {
-  display.setFullWindow();
-  display.fillScreen(GxEPD_BLACK);
-  display.setFont(&FreeMonoBold9pt7b);
-
-  int16_t x1, y1;
-  uint16_t w, h;
-  int16_t yPos;
-
-  const char *menuItems[] = {
-      "About Watchy", "Shopping List", "Show Accelerometer",
-      "Set Time",     "Setup WiFi",    "Update Firmware",
-      "Sync NTP"};
-  for (int i = 0; i < MENU_LENGTH; i++) {
-    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
-    display.setCursor(0, yPos);
-    if (i == menuIndex) {
-      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
-      display.setTextColor(GxEPD_BLACK);
-      display.println(menuItems[i]);
-    } else {
-      display.setTextColor(GxEPD_WHITE);
-      display.println(menuItems[i]);
-    }
-  }
-
-  display.display(partialRefresh);
-
-  guiState = MAIN_MENU_STATE;
-  alreadyInMenu = false;
-}
-
-void WatchyChron::showFastMenu(byte menuIndex) {
-  display.setFullWindow();
-  display.fillScreen(GxEPD_BLACK);
-  display.setFont(&FreeMonoBold9pt7b);
-
-  int16_t x1, y1;
-  uint16_t w, h;
-  int16_t yPos;
-
-  const char *menuItems[] = {
-      "About Watchy", "Shopping List", "Show Accelerometer",
-      "Set Time",     "Setup WiFi",    "Update Firmware",
-      "Sync NTP"};
-  for (int i = 0; i < MENU_LENGTH; i++) {
-    yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
-    display.setCursor(0, yPos);
-    if (i == menuIndex) {
-      display.getTextBounds(menuItems[i], 0, yPos, &x1, &y1, &w, &h);
-      display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE);
-      display.setTextColor(GxEPD_BLACK);
-      display.println(menuItems[i]);
-    } else {
-      display.setTextColor(GxEPD_WHITE);
-      display.println(menuItems[i]);
-    }
-  }
-
-  display.display(true);
-
-  guiState = MAIN_MENU_STATE;
-}
-
-// TODO: showMenu, showShoppingList, showFastMenu, and showShoppingList are near-identical:
-    // Investigate consolidating code into fn/wrappers
-void WatchyChron::showShoppingList(byte listIndex, bool partialRefresh) {
-    static uint16_t lastListSttIndex = 0;
-    display.setFullWindow();
-    display.fillScreen(GxEPD_BLACK);
-    display.setFont(&FreeMonoBold9pt7b);
-
-    int16_t x1, y1;
-    uint16_t w, h;
-    int16_t yPos;
-
-    const uint8_t maxItemLen = 18; // max chars in item not including null char
-    // const uint8_t maxItemLenExclCheckbox = 15; // assuming two-char checkbox plus space
-    const uint16_t listSttIndex = (listIndex / MENU_LENGTH) * MENU_LENGTH;
-    if (listSttIndex != lastListSttIndex) {
-        // Paged up or down: do a full refresh
-        partialRefresh = false;
-    }
-    lastListSttIndex = listSttIndex;
-
-    for (int i = listSttIndex; i < listSttIndex + MENU_LENGTH && i < listLen; i++) {
-        yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
-        display.setCursor(0, yPos);
-        if (i == listIndex) {
-            display.getTextBounds(listItems[i], 0, yPos, &x1, &y1, &w, &h);
-            display.fillRect(x1 - 1, y1 - 10, 200, h + 15, GxEPD_WHITE); // 200 might just be display width
-            display.setTextColor(GxEPD_BLACK);
-            display.println(listItems[i]);
         } else {
-            display.setTextColor(GxEPD_WHITE);
-            display.println(listItems[i]);
-        }
-        if (listChecks[i]) {
-            display.drawLine(x1 - 1, y1 + h/2, 200, y1 + h/2, i == listIndex ? GxEPD_BLACK : GxEPD_WHITE);
+            if (digitalRead(MENU_BTN_PIN) == 1) {
+                lastTimeout = millis();
+                if (guiState == MAIN_MENU_STATE) { // if already in menu, then select menu item
+                switch (menuIndex) {
+                    case 0:
+                        showAbout();
+                        break;
+                    case 1:
+                        showBuzz();
+                        break;
+                    case 2:
+                        showAccelerometer();
+                        break;
+                    case 3:
+                        setTime();
+                        break;
+                    case 4:
+                        setupWifi();
+                        break;
+                    case 5:
+                        showUpdateFW();
+                        break;
+                    case 6:
+                        showSyncNTP();
+                        break;
+                    default:
+                        break;
+                }
+                } else if (guiState == FW_UPDATE_STATE) {
+                    updateFWBegin();
+                }
+            } else if (digitalRead(BACK_BTN_PIN) == 1) {
+                lastTimeout = millis();
+                if (guiState == MAIN_MENU_STATE) { // exit to watch face if already in menu
+                    RTC.read(currentTime);
+                    showWatchFace(false);
+                    break; // leave loop
+                } else if (guiState == APP_STATE) {
+                    showMenu(menuIndex, false); // exit to menu if already in app
+                } else if (guiState == FW_UPDATE_STATE) {
+                    showMenu(menuIndex, false); // exit to menu if already in app
+                } else if (guiState == WATCHFACE_STATE) {
+                    timeout = true;
+                }
+            } else if (digitalRead(UP_BTN_PIN) == 1) {
+                lastTimeout = millis();
+                if (guiState == MAIN_MENU_STATE) { // increment menu index
+                    menuIndex--;
+                    if (menuIndex < 0) {
+                        menuIndex = MENU_LENGTH - 1;
+                    }
+                    showFastMenu(menuIndex);
+                } else if (guiState == WATCHFACE_STATE) {
+                    timeout = true;
+                }
+            } else if (digitalRead(DOWN_BTN_PIN) == 1) {
+                lastTimeout = millis();
+                if (guiState == MAIN_MENU_STATE) { // decrement menu index
+                    menuIndex++;
+                    if (menuIndex > MENU_LENGTH - 1) {
+                        menuIndex = 0;
+                    }
+                    showFastMenu(menuIndex);
+                } else if (guiState == WATCHFACE_STATE) {
+                    timeout = true;
+                }
+            }
         }
     }
-    display.display(partialRefresh);
-    guiState = SHOPLIST_STATE;
-    // Prevent exiting to watchface when in shopping list
-    alreadyInMenu = false;
 }

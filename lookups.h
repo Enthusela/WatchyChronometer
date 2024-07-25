@@ -4,7 +4,7 @@
 const int monthStartDay[13] = {
     0,
     0,
-    30,
+    31,
     59,
     90,
     120,
@@ -15,6 +15,22 @@ const int monthStartDay[13] = {
     273,
     304,
     334
+};
+
+const int monthStartDayLeapYear[13] = {
+    0,
+    0,
+    31,
+    60,
+    91,
+    121,
+    152,
+    182,
+    211,
+    244,
+    274,
+    305,
+    335
 };
 
 const int dayNightLookup[366][4] = {

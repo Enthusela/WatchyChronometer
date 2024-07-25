@@ -14,6 +14,10 @@
 #define ZERO_MINUTE 360
 #define MINUTES_PER_DAY 1440.0
 #define CIRCLE_DEGREES 360.0
+// First image corresponds to 5pm (last to 7am)
+#define ZERO_INDEX_HOUR 17
+// First image at 5pm plus two images per hour puts midnight at index 14
+#define MIDNIGHT_INDEX 14
 
 const uint8_t DISPLAY_CENTRE_X = DISPLAY_WIDTH / 2;
 const uint8_t DISPLAY_CENTRE_Y = DISPLAY_HEIGHT / 2;
@@ -25,6 +29,10 @@ RTC_DATA_ATTR bool showStats = false;
 RTC_DATA_ATTR bool darkMode = false;
 RTC_DATA_ATTR uint8_t prevDay = 0;
 
+struct xyPoint {
+  int x;
+  int y;
+};
 
 void WatchyChron::drawWatchFace() {
     dayOfYear = monthStartDay[currentTime.Month] + currentTime.Day;
@@ -87,18 +95,17 @@ void WatchyChron::drawSun() {
     float angle = (currentMinute - ZERO_MINUTE) / MINUTES_PER_DAY * TWO_PI;
     int sun_x_pos = DISPLAY_CENTRE_X + border_radius * cos(angle) - (sun_icon_width / 2);
     int sun_y_pos = DISPLAY_CENTRE_Y - border_radius * sin(angle) - (sun_icon_height / 2);
-    bool nighttime = currentMinute > sunsetMinute || currentMinute < sunriseMinute;
-    if (nighttime) {
-        // First image corresponds to 5pm (last to 7am)
-        const uint8_t zero_index_hour = 17;
-        // First image at 5pm plus two images per hour puts midnight at index 14
-        const uint8_t midnight_index = 14;
+    bool daytime = currentMinute >= sunriseMinute && currentMinute < sunsetMinute;
+    if (daytime) {
+        display.drawBitmap(sun_x_pos, sun_y_pos, sunFill, sun_icon_width, sun_icon_height, foregroundColor);
+        display.drawBitmap(sun_x_pos, sun_y_pos, sunBorder, sun_icon_width, sun_icon_height, foregroundColor);
+    } else {
         // Moon image index calculated from current time
         uint8_t index;
-        if (currentTime.Hour >= zero_index_hour) {
-            index = (currentTime.Hour - zero_index_hour) * 2;
+        if (currentTime.Hour >= ZERO_INDEX_HOUR) {
+            index = (currentTime.Hour - ZERO_INDEX_HOUR) * 2;
         } else {
-            index = midnight_index + (currentTime.Hour * 2);
+            index = MIDNIGHT_INDEX + (currentTime.Hour * 2);
         }
         if (currentTime.Minute > 15 && currentTime.Minute < 45) {
             index += 1;
@@ -107,18 +114,56 @@ void WatchyChron::drawSun() {
             index += 2;
         }
         index = min(index, bmp_moonWax2qrt_array_max_index);
+        // positive mask is 24 pixels wide: 
+        // don't show for newmoon
+        // offset 0 for wax1qrt
+        // offset 8 for wax2qrt
+        // offset 16 for wax3qrt
+        // fullmoon for fullmoon
+        // offset 24 for wane3qrt
+        // offset 32 for wane2qrt
+        // offset 40 for wane1qrt
+        uint8_t phase_offset = 0;
         // Calculate moon position
+        const uint8_t midnight_x_pos = DISPLAY_CENTRE_X;
+        const uint8_t midnight_y_pos = DISPLAY_CENTRE_Y + border_radius;
+        const uint8_t moon_phase_add_mask_width = 24;
+        const uint8_t moon_phase_add_mask_height = 33;
+        uint8_t moon_phase_add_mask_pos_x = midnight_x_pos - moon_phase_add_mask_width + phase_offset;
+        uint8_t moon_phase_add_mask_pos_y = midnight_y_pos - (moon_phase_add_mask_height / 2);
+        // midnight is -HALF_PI from zero_angle
+        xyPoint moon_phase_add_mask_pos = rotatePointAround(moon_phase_add_mask_pos_x,
+                                                            moon_phase_add_mask_pos_y,
+                                                            DISPLAY_CENTRE_X,
+                                                            DISPLAY_CENTRE_Y,
+                                                            angle + HALF_PI);
+        display.drawBitmap(moon_phase_add_mask_pos.x,
+                            moon_phase_add_mask_pos.y,
+                            bmp_moonWax2qrt_array[index],
+                            moon_phase_add_mask_width,
+                            moon_phase_add_mask_height,
+                            foregroundColor);
+
+        // Draw moon bitmap
         const uint8_t moon_icon_width = 33;
         const uint8_t moon_icon_height = 33;
         int moon_x_pos = DISPLAY_CENTRE_X + border_radius * cos(angle) - (moon_icon_width / 2);
         int moon_y_pos = DISPLAY_CENTRE_Y - border_radius * sin(angle) - (moon_icon_height / 2);
-        // Draw moon bitmap
-        display.drawBitmap(moon_x_pos, moon_y_pos, bmp_moonWax2qrt_array[index], moon_icon_width, moon_icon_height, foregroundColor);  
-        display.drawBitmap(sun_x_pos, sun_y_pos, sunBorderNoRays, sun_icon_width, sun_icon_height, foregroundColor);  
-    } else {
-        display.drawBitmap(sun_x_pos, sun_y_pos, sunFill, sun_icon_width, sun_icon_height, foregroundColor);
-        display.drawBitmap(sun_x_pos, sun_y_pos, sunBorder, sun_icon_width, sun_icon_height, foregroundColor);
+        display.drawBitmap(moon_x_pos, moon_y_pos, bmp_moonWax2qrt_array[index], moon_icon_width, moon_icon_height, foregroundColor);
+        display.drawBitmap(sun_x_pos, sun_y_pos, sunBorderNoRays, sun_icon_width, sun_icon_height, foregroundColor);
     }
+}
+
+
+struct xyPoint rotatePointAround(int x, int y, int ox, int oy, double angle) {
+  // rotate X,Y point around given origin point by a given angle
+  // based on https://gist.github.com/LyleScott/e36e08bfb23b1f87af68c9051f985302#file-rotate_2d_point-py-L38
+  double qx = (double)ox + (cos(angle) * (double)(x - ox)) + (sin(angle) * (double)(y - oy));
+  double qy = (double)oy + (-sin(angle) * (double)(x - ox)) + (cos(angle) * (double)(y - oy));
+  struct xyPoint newPoint;
+  newPoint.x = (int)qx;
+  newPoint.y = (int)qy;
+  return newPoint;
 }
 
 

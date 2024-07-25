@@ -20,6 +20,7 @@ class WatchyChron : public Watchy{
         void drawMasks();
         void drawSteps();
         void drawSun();
+        struct xyPoint rotatePointAround(int x, int y, int ox, int oy, double angle);
         void drawTime();
         void drawCenteredString(const String &str, int x, int y, bool drawBg);
         void handleButtonPress();
